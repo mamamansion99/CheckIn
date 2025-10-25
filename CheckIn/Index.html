@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <!-- IMPORTANT: mobile fit + prevent weird zoom -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Room Inspection</title>
+  <style>
+    /* Basic Reset & Font */
+    :root {
+      --primary-color: #007bff;
+      --background-color: #f4f7f6;
+      --card-background: #ffffff;
+      --text-color: #333;
+      --muted-color: #888;
+      --border-color: #e0e0e0;
+      --shadow-color: rgba(0, 0, 0, 0.05);
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      background-color: var(--background-color);
+      color: var(--text-color);
+      line-height: 1.6;
+    }
+    /* App Header */
+    .appbar {
+      background-color: var(--primary-color);
+      color: white;
+      padding: 1rem;
+      font-size: 1.25rem;
+      font-weight: 600;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    /* Main Content Area */
+    .container {
+      padding: 1rem;
+      padding-bottom: 80px; /* Space for sticky submit bar */
+    }
+    /* Card Layout */
+    .card {
+      background-color: var(--card-background);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px var(--shadow-color);
+      margin-bottom: 1.25rem;
+      padding: 1rem;
+      border: 1px solid var(--border-color);
+    }
+    .card-title {
+      margin-top: 0;
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+      color: var(--primary-color);
+      font-weight: 600;
+    }
+    /* Collapsible Details/Summary */
+    details > summary {
+      list-style: none;
+      cursor: pointer;
+    }
+    details > summary::-webkit-details-marker {
+      display: none;
+    }
+    .card-summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .muted {
+      color: var(--muted-color);
+      font-size: 0.8rem;
+    }
+    details[open] .muted {
+      display: none; /* Hide 'tap to expand' when open */
+    }
+    /* Layout Helpers */
+    .grid {
+      display: grid;
+      gap: 0.75rem;
+    }
+    .grid-2 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    /* Form Fields */
+    .field {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 1rem;
+      box-sizing: border-box;
+      background-color: #fdfdfd;
+    }
+    .field:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+    }
+    textarea.field {
+      min-height: 80px;
+      resize: vertical;
+    }
+    /* Radio Buttons */
+    .radio-row {
+      display: flex;
+      gap: 1.5rem;
+      padding: 0.5rem 0;
+    }
+    .radio {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+    }
+    .radio input[type="radio"] {
+      accent-color: var(--primary-color);
+    }
+    /* Buttons */
+    .btn {
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 1rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      width: 100%;
+      transition: background-color 0.2s;
+    }
+    .btn:hover, .btn:focus {
+      background-color: #0056b3;
+    }
+    .btn:disabled {
+      background-color: #a0a0a0;
+      cursor: not-allowed;
+    }
+    /* Sticky Submit Bar */
+    .submit-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 1rem;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+      backdrop-filter: blur(5px);
+    }
+  </style>
+</head>
+<body>
+  <header class="appbar">Room Inspection Form</header>
+
+  <main class="container">
+    <form id="inspect" action="https://gas-proxy.mamamansion99.workers.dev/upload"
+          method="POST" enctype="multipart/form-data">
+
+      <!-- General Info -->
+      <section class="card">
+        <h2 class="card-title">General Info</h2>
+        <div class="grid grid-2">
+          <input class="field" type="text" name="building" placeholder="Building" autocomplete="section-room building" required />
+          <input class="field" type="text" name="floor" placeholder="Floor" inputmode="numeric" autocomplete="section-room floor" required />
+          <input class="field" type="text" name="roomId" placeholder="Room ID" autocomplete="section-room room" autofocus required />
+          <!-- Inspector dropdown -->
+          <select class="field" name="inspector" required>
+            <option value="">Select Inspector</option>
+            <!-- === START EDIT HERE: ชื่อใหม่ตามที่ขอครับ === -->
+            <option value="พี่ก้อย">พี่ก้อย</option>
+            <option value="Ma">Ma</option>
+            <option value="KK">KK</option>
+            <!-- === END EDIT HERE === -->
+          </select>
+        </div>
+        <textarea class="field" name="globalNotes" placeholder="Global Notes"></textarea>
+      </section>
+
+      <!-- Area = details card template (repeat) -->
+      <details class="card" open>
+        <summary class="card-summary">
+          <h2 class="card-title">DOOR</h2>
+          <span class="muted">tap to collapse</span>
+        </summary>
+        <div class="stack">
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="status[DOOR]" value="ok" checked> OK</label>
+            <label class="radio"><input type="radio" name="status[DOOR]" value="problem"> Problem</label>
+          </div>
+          <textarea class="field" name="note[DOOR]" placeholder="Note for DOOR..."></textarea>
+          <input class="field" type="file" name="photo[DOOR][]" accept="image/*" capture="environment" multiple />
+        </div>
+      </details>
+
+      <details class="card">
+        <summary class="card-summary"><h2 class="card-title">CURTAIN</h2><span class="muted">tap to expand</span></summary>
+        <div class="stack">
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="status[CURTAIN]" value="ok" checked> OK</label>
+            <label class="radio"><input type="radio" name="status[CURTAIN]" value="problem"> Problem</label>
+          </div>
+          <textarea class="field" name="note[CURTAIN]" placeholder="Note for CURTAIN..."></textarea>
+          <input class="field" type="file" name="photo[CURTAIN][]" accept="image/*" capture="environment" multiple />
+        </div>
+      </details>
+
+      <details class="card">
+        <summary class="card-summary"><h2 class="card-title">BED</h2><span class="muted">tap to expand</span></summary>
+        <div class="stack">
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="status[BED]" value="ok" checked> OK</label>
+            <label class="radio"><input type="radio" name="status[BED]" value="problem"> Problem</label>
+          </div>
+          <textarea class="field" name="note[BED]" placeholder="Note for BED..."></textarea>
+          <input class="field" type="file" name="photo[BED][]" accept="image/*" capture="environment" multiple />
+        </div>
+      </details>
+
+      <details class="card">
+        <summary class="card-summary"><h2 class="card-title">CHAIR &amp; TABLE</h2><span class="muted">tap to expand</span></summary>
+        <div class="stack">
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="status[CHAIR_TABLE]" value="ok" checked> OK</label>
+            <label class="radio"><input type="radio" name="status[CHAIR_TABLE]" value="problem"> Problem</label>
+          </div>
+          <textarea class="field" name="note[CHAIR_TABLE]" placeholder="Note for CHAIR &amp; TABLE..."></textarea>
+          <input class="field" type="file" name="photo[CHAIR_TABLE][]" accept="image/*" capture="environment" multiple />
+        </div>
+      </details>
+
+      <details class="card">
+        <summary class="card-summary"><h2 class="card-title">WARDROBE</h2><span class="muted">tap to expand</span></summary>
+        <div class="stack">
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="status[WARDROBE]" value="ok" checked> OK</label>
+            <label class="radio"><input type="radio" name="status[WARDROBE]" value="problem"> Problem</label>
+          </div>
+          <textarea class="field" name="note[WARDROBE]" placeholder="Note for WARDROBE..."></textarea>
+          <input class="field" type="file" name="photo[WARDROBE][]" accept="image/*" capture="environment" multiple />
+        </div>
+      </details>
+
+      <details class="card">
+        <summary class="card-summary"><h2 class="card-title">AIR CONDITIONER</h2><span class="muted">tap to expand</span></summary>
+        <div class="stack">
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="status[AC]" value="ok" checked> OK</label>
+            <label class="radio"><input type="radio" name="status[AC]" value="problem"> Problem</label>
+          </div>
+          <textarea class="field" name="note[AC]" placeholder="Note for AC..."></textarea>
+          <input class="field" type="file" name="photo[AC][]" accept="image/*" capture="environment" multiple />
+        </div>
+      </details>
+
+      <details class="card">
+        <summary class="card-summary"><h2 class="card-title">TOILET &amp; SINK</h2><span class="muted">tap to expand</span></summary>
+        <div class="stack">
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="status[TOILET_SINK]" value="ok" checked> OK</label>
+            <label class="radio"><input type="radio" name="status[TOILET_SINK]" value="problem"> Problem</label>
+          </div>
+          <textarea class="field" name="note[TOILET_SINK]" placeholder="Note for TOILET &amp; SINK..."></textarea>
+          <input class="field" type="file" name="photo[TOILET_SINK][]" accept="image/*" capture="environment" multiple />
+        </div>
+      </details>
+
+      <details class="card">
+        <summary class="card-summary"><h2 class="card-title">SHOWER &amp; HEATER</h2><span class="muted">tap to expand</span></summary>
+        <div class="stack">
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="status[SHOWER_HEATER]" value="ok" checked> OK</label>
+            <label class="radio"><input type="radio" name="status[SHOWER_HEATER]" value="problem"> Problem</label>
+          </div>
+          <textarea class="field" name="note[SHOWER_HEATER]" placeholder="Note for SHOWER &amp; HEATER..."></textarea>
+          <input class="field" type="file" name="photo[SHOWER_HEATER][]" accept="image/*" capture="environment" multiple />
+        </div>
+      </details>
+
+      <details class="card">
+        <summary class="card-summary"><h2 class="card-title">WALL / FLOOR / CEILING</h2><span class="muted">tap to expand</span></summary>
+        <div class="stack">
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="status[WALL_FLOOR_CEILING]" value="ok" checked> OK</label>
+            <label class="radio"><input type="radio" name="status[WALL_FLOOR_CEILING]" value="problem"> Problem</label>
+          </div>
+          <textarea class="field" name="note[WALL_FLOOR_CEILING]" placeholder="Note for WALL / FLOOR / CEILING..."></textarea>
+          <input class="field" type="file" name="photo[WALL_FLOOR_CEILING][]" accept="image/*" capture="environment" multiple />
+        </div>
+      </details>
+
+      <!-- Tenant Signature -->
+      <section class="card">
+        <h2 class="card-title">Tenant Signature</h2>
+        <canvas id="signature-pad" width="400" height="200"
+                style="border:1px solid #ccc; width:100%; height:200px;"></canvas>
+        <div class="stack">
+          <button type="button" onclick="clearSig()">Clear</button>
+        </div>
+        <input type="file" id="signatureFile" name="photo[SIGNATURE][]" accept="image/png" hidden />
+      </section>
+
+      <!-- Sticky submit for thumb reach -->
+      <div class="submit-bar">
+        <button class="btn" type="submit">Submit Inspection</button>
+      </div>
+    </form>
+  </main>
+
+<script>
+  // prevent double-submit on slow networks
+  const form = document.getElementById('inspect');
+
+  // ========== Tenant Signature Pad ==========
+  const canvas = document.getElementById('signature-pad');
+  const ctx = canvas.getContext('2d');
+  let drawing = false;
+
+  // Adjust canvas for high DPI screens
+  const dpi = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpi;
+  canvas.height = rect.height * dpi;
+  ctx.scale(dpi, dpi);
+  
+  // Set initial background and styles
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#000';
+
+  canvas.addEventListener('mousedown', startDraw);
+  canvas.addEventListener('mouseup', endDraw);
+  canvas.addEventListener('mouseout', endDraw);
+  canvas.addEventListener('mousemove', draw);
+
+  canvas.addEventListener('touchstart', startDraw);
+  canvas.addEventListener('touchend', endDraw);
+  canvas.addEventListener('touchcancel', endDraw);
+  canvas.addEventListener('touchmove', drawTouch);
+
+  function startDraw(e) {
+    drawing = true;
+    const pos = getPos(e.touches ? e.touches[0] : e);
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+  }
+  function endDraw() {
+    drawing = false;
+    ctx.beginPath();
+  }
+  function draw(e) {
+    if (!drawing) return;
+    const pos = getPos(e);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+  }
+  function drawTouch(e) {
+    e.preventDefault();
+    if (!drawing) return;
+    const pos = getPos(e.touches[0]);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+  }
+  function getPos(evt) {
+    const rect = canvas.getBoundingClientRect();
+    return { 
+      x: evt.clientX - rect.left, 
+      y: evt.clientY - rect.top 
+    };
+  }
+  function clearSig() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // --- helper: canvas → Blob (with safe fallback) ---
+  function canvasToBlobPNG(cv) {
+    return new Promise(resolve => {
+      if (cv.toBlob) {
+        cv.toBlob(b => resolve(b), 'image/png');
+      } else {
+        const dataURL = cv.toDataURL('image/png');
+        const byteString = atob(dataURL.split(',')[1]);
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+        resolve(new Blob([ab], { type: 'image/png' }));
+      }
+    });
+  }
+
+  // --- helper: ensure a hidden field exists and set its value ---
+  function setHidden(name, value) {
+    let el = form.querySelector(`input[type="hidden"][name="${name}"]`);
+    if (!el) {
+      el = document.createElement('input');
+      el.type = 'hidden';
+      el.name = name;
+      form.appendChild(el);
+    }
+    el.value = value;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const btn = form.querySelector('.btn');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Submit Inspection'; }, 8000);
+
+    // 1) Put canvas into the hidden file input => Worker will treat like normal photo
+    const blob = await canvasToBlobPNG(canvas);
+    if (blob && blob.size > 100) { // Check for more than just an empty canvas
+      const file = new File([blob], `signature_${Date.now()}.png`, { type: 'image/png' });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      const sigInput = document.getElementById('signatureFile'); // name="photo[SIGNATURE][]"
+      sigInput.files = dt.files;
+    }
+
+    // 2) Keep base64 too (harmless; future-proof if Worker starts forwarding it)
+    setHidden('tenantSignature', canvas.toDataURL('image/png'));
+
+    // 3) Submit normally (multipart/form-data stays intact)
+    form.submit();
+  });
+</script>
+</body>
+</html>
+
