@@ -1,5 +1,5 @@
 // ---------------- CONFIG (single object) ----------------
-var CONFIG = (typeof CONFIG !== 'undefined') ? CONFIG : {
+var CONFIG = {
   SHEET_ID: '1KsimOBXcP2PhZ3Y16DXo7KKcTO9sMNksKJbxc5VEHEQ',
   CHECKIN_LOG_SHEET: 'Checkin_Log',
   ROOMS_SHEET: 'Rooms',
@@ -10,11 +10,18 @@ var CONFIG = (typeof CONFIG !== 'undefined') ? CONFIG : {
   ROOM_HDR_ID: 'RoomFolderId',    // main room folder id
   CHECKIN_HDR_ID: 'CheckInFolderId',
   CHECKOUT_HDR_ID: 'CheckOutFolderId', // (not used in this code)
-  TEMPLATE_ID: '1OWoJ0GTSnh43QXslYZ42pmQ0nKV7k4_fZsdTVSvb9OE'
+  ROOM_STATUS_HEADER: 'Status',   // column storing current occupancy state
+  TEMPLATE_ID: '1OWoJ0GTSnh43QXslYZ42pmQ0nKV7k4_fZsdTVSvb9OE',
+
+  OPENCHAT_LINKS: {
+    A: 'https://line.me/ti/g2/dONR8eAdCqgxzVm_5R_rT0OHcVthoguInw74LQ?utm_source=invitation&utm_medium=link_copy&utm_campaign=default',
+    B: 'https://line.me/ti/g2/7vuG4-RhTbE6zknNYX_JR6buwMWF89Cbxmw7Og?utm_source=invitation&utm_medium=link_copy&utm_campaign=default'
+  }
 
 };
 
-const WELCOME_URL  = "https://drive.google.com/file/d/1toLV9BNPZ74gTOC6EJpY7tsPZJhA06y7/view?usp=sharing";
+const WELCOME_URL  = "https://drive.google.com/file/d/1wWcvDnXa5oJnAFxfdYAhc1f35Nr8Kfhx/view?usp=drive_link";
+const OPENCHAT_LINKS = CONFIG.OPENCHAT_LINKS || {};
 
 /* ---------------- Web App ---------------- */
 function doGet() {
@@ -201,6 +208,8 @@ function doPost(e) {
     sh.appendRow(base);
     var r = sh.getLastRow();
 
+    updateRoomStatus(ss, roomId, 'Checked In');
+
     // === prepare rowObj for PDF ===
     var areas = new Set([
       ...Object.keys(metaByArea || {}),
@@ -263,21 +272,126 @@ function doPost(e) {
 
     // === find tenant's LINE ID & send PDFs + welcome pack ===
     var lineId = getLineIdForRoom(roomId);
+    var bld = getBuildingLetter_(building, roomId);
+    var inviteText = '';
+    var availableBlds = [];
+    if (OPENCHAT_LINKS) {
+      Object.keys(OPENCHAT_LINKS).forEach(function (key) {
+        var url = OPENCHAT_LINKS[key];
+        if (!url) return;
+        availableBlds.push({
+          key: key,
+          letter: String(key).toUpperCase(),
+          url: url
+        });
+      });
+    }
+
+    var chosen = availableBlds.find(function (entry) { return entry.letter === bld; }) || null;
+    if (chosen) {
+      inviteText =
+        `\n\n👥 ชุมชนผู้เช่า – อาคาร ${chosen.letter}\n` +
+        `${chosen.url}\n` +
+        `หมายเหตุ: กลุ่มนี้เพื่อคุยกันเอง/เตือนกัน • งานซ่อม/การเงินให้ติดต่อ OA เท่านั้นนะคะ`;
+    } else if (availableBlds.length) {
+      if (availableBlds.length === 1) {
+        var single = availableBlds[0];
+        inviteText =
+          `\n\n👥 ชุมชนผู้เช่า – อาคาร ${single.letter}\n` +
+          `${single.url}\n` +
+          `หมายเหตุ: กลุ่มนี้เพื่อคุยกันเอง/เตือนกัน • งานซ่อม/การเงินให้ติดต่อ OA เท่านั้นนะคะ`;
+      } else {
+        var lines = availableBlds.map(function (entry) {
+          return `อาคาร ${entry.letter}: ${entry.url}`;
+        }).join('\n');
+        inviteText =
+          "\n\n👥 ชุมชนผู้เช่า\n" +
+          lines + "\n" +
+          "หมายเหตุ: กลุ่มนี้เพื่อคุยกันเอง/เตือนกัน • งานซ่อม/การเงินให้ติดต่อ OA เท่านั้นนะคะ";
+      }
+    }
+
+    var tenantMsg = [
+      `ยินดีต้อนรับสู่ Mama Mansion ห้อง ${roomId} 🎉`,
+      `ขอบคุณที่ตรวจรับห้องและลงชื่อเรียบร้อยแล้วนะคะ`,
+      '',
+      '✅ ใบตรวจรับ (PDF)',
+      pdfUrl,
+      '',
+      '📘 คู่มือการอยู่เบื้องต้น (PDF)',
+      WELCOME_URL
+    ];
+
+    if (inviteText) tenantMsg.push('', inviteText.trim());
+
+    tenantMsg.push(
+      '',
+      'ต้องการความช่วยเหลือ ทักแชทได้ตลอดค่ะ 💬',
+      'โทรติดต่อ: 082-082-9484 ☎️'
+    );
+    tenantMsg = tenantMsg.join('\n');
+
+    var ownerMsg = `มีการตรวจรับห้องเรียบร้อยแล้ว ✅
+อาคาร: ${building || '-'}
+ชั้น: ${floor || '-'}
+ห้อง: ${roomId || '-'}
+ผู้ตรวจ: ${inspector || '-'}
+
+ไฟล์ตรวจรับ: ${pdfUrl}
+โฟลเดอร์รูป: ${folder.getUrl()}`;
+
+    if (inviteText) ownerMsg += '\n\n' + inviteText.trim();
+
+    Logger.log("Invite debug → room: %s, building field: %s, detected: %s, invites: %s", roomId, building, bld || '-', JSON.stringify(availableBlds.map(function (e) { return e.letter + ':' + e.url; })));
+    Logger.log("Invite text preview → %s", inviteText || '(empty)');
+
     if (lineId) {
-      var msg = `ยินดีต้อนรับสู่ Mama Mansion ห้อง ${roomId} 🎉
-    ขอบคุณที่ตรวจรับห้องและลงชื่อเรียบร้อยแล้วนะคะ
+      Logger.log("LINE notify → tenant %s", lineId);
+      // 1) Send the normal text first
+      sendLineMessage(tenantMsg, lineId);
 
-    ✅ ใบตรวจรับ (PDF)
-    ${pdfUrl}
-
-    📘 คู่มือการอยู่เบื้องต้น (PDF)
-    ${WELCOME_URL}
-
-    ต้องการความช่วยเหลือ ทักแชทได้ตลอดค่ะ 💬
-    โทรติดต่อ: 082-082-9484 ☎️`;
-      sendLineMessage(msg, lineId);
+      // 2) Then send the Flex invite
+      if (chosen) {
+        sendLineFlexInvite(chosen.letter, chosen.url, lineId);
+      } else if (availableBlds.length >= 2) {
+        var linkA = availableBlds.find(function (entry) { return entry.letter === 'A'; });
+        var linkB = availableBlds.find(function (entry) { return entry.letter === 'B'; });
+        // Fallback: unknown building -> show both buttons (A/B)
+        if (linkA && linkB) {
+          sendLineFlexTwoInvites(linkA.url, linkB.url, lineId);
+        } else {
+          // If we do not have both A/B, send all available as single buttons sequentially.
+          availableBlds.forEach(function (entry) {
+            sendLineFlexInvite(entry.letter, entry.url, lineId);
+          });
+        }
+      } else if (availableBlds.length === 1) {
+        sendLineFlexInvite(availableBlds[0].letter, availableBlds[0].url, lineId);
+      }
     } else {
       Logger.log("⚠️ No LINE ID found for room " + roomId);
+    }
+
+    var managerId = PropertiesService.getScriptProperties().getProperty('LINE_MANAGER_ID') ||
+                    PropertiesService.getScriptProperties().getProperty('LINE_OWNER_ID');
+    if (managerId) {
+      Logger.log("LINE notify → manager %s", managerId);
+      sendLineMessage(ownerMsg, managerId);
+      if (chosen) {
+        sendLineFlexInvite(chosen.letter, chosen.url, managerId);
+      } else if (availableBlds.length >= 2) {
+        var linkA = availableBlds.find(function (entry) { return entry.letter === 'A'; });
+        var linkB = availableBlds.find(function (entry) { return entry.letter === 'B'; });
+        if (linkA && linkB) {
+          sendLineFlexTwoInvites(linkA.url, linkB.url, managerId);
+        } else if (availableBlds.length === 1) {
+          sendLineFlexInvite(availableBlds[0].letter, availableBlds[0].url, managerId);
+        }
+      } else if (availableBlds.length === 1) {
+        sendLineFlexInvite(availableBlds[0].letter, availableBlds[0].url, managerId);
+      }
+    } else {
+      Logger.log("⚠️ No LINE_MANAGER_ID/LINE_OWNER_ID property set; manager not notified.");
     }
 
 
@@ -296,6 +410,44 @@ function doPost(e) {
   }
 }
 
+
+/* ---------------- Room status updates ---------------- */
+function updateRoomStatus(ssOrNull, roomId, statusValue) {
+  if (!CONFIG.ROOM_STATUS_HEADER || !roomId || !statusValue) return;
+
+  var ss = ssOrNull || SpreadsheetApp.openById(CONFIG.SHEET_ID);
+  var sh = ss.getSheetByName(CONFIG.ROOMS_SHEET);
+  if (!sh) {
+    Logger.log("⚠️ updateRoomStatus: missing sheet %s", CONFIG.ROOMS_SHEET);
+    return;
+  }
+
+  var lastCol = sh.getLastColumn();
+  if (!lastCol) return;
+
+  var headers = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  var idxRoom = headers.indexOf(CONFIG.ROOM_HEADER);
+  var idxStatus = headers.indexOf(CONFIG.ROOM_STATUS_HEADER);
+  if (idxRoom < 0 || idxStatus < 0) {
+    Logger.log("⚠️ updateRoomStatus: missing headers room=%s status=%s", CONFIG.ROOM_HEADER, CONFIG.ROOM_STATUS_HEADER);
+    return;
+  }
+
+  var lastRow = sh.getLastRow();
+  if (lastRow <= 1) return;
+
+  var roomVals = sh.getRange(2, idxRoom + 1, lastRow - 1, 1).getValues();
+  for (var r = 0; r < roomVals.length; r++) {
+    var rid = String(roomVals[r][0]).trim();
+    if (!rid) continue;
+    if (rid.toUpperCase() === roomId.toUpperCase()) {
+      sh.getRange(r + 2, idxStatus + 1).setValue(statusValue);
+      return;
+    }
+  }
+
+  Logger.log("⚠️ updateRoomStatus: room %s not found in sheet %s", roomId, CONFIG.ROOMS_SHEET);
+}
 
 /* ---------------- Folder lookups ---------------- */
 function getFolderIdForRoom(roomId) {
@@ -356,6 +508,30 @@ function extractFolderId(val) {
   if (/^[A-Za-z0-9_-]{20,}$/.test(val)) return val;                  // raw Id
   var m = String(val).match(/\/folders\/([A-Za-z0-9_-]{20,})/);      // from URL
   return m ? m[1] : null;
+}
+
+function getBuildingLetter_(building, roomId) {
+  var available = [];
+  if (OPENCHAT_LINKS) {
+    Object.keys(OPENCHAT_LINKS).forEach(function (k) {
+      if (OPENCHAT_LINKS[k]) available.push(String(k).toUpperCase());
+    });
+  }
+  if (!available.length) return '';
+
+  var scan = function (text) {
+    if (!text) return '';
+    var upper = String(text).toUpperCase();
+    for (var i = 0; i < upper.length; i++) {
+      var ch = upper.charAt(i);
+      if (available.indexOf(ch) !== -1) return ch;
+    }
+    return '';
+  };
+
+  var fromRoom = scan(roomId);
+  if (fromRoom) return fromRoom;
+  return scan(building);
 }
 
 function guessExt(mime, name) {
@@ -552,6 +728,98 @@ function sendLineMessage(msg, toUserId) {
   });
 }
 
+function sendLineFlexInvite(bld, link, toUserId) {
+  const token = PropertiesService.getScriptProperties().getProperty('LINE_TOKEN');
+  if (!token || !toUserId || !link) return;
+
+  const title = `เข้าร่วมกลุ่มผู้เช่า – อาคาร ${bld}`;
+  const payload = {
+    to: toUserId,
+    messages: [{
+      type: "flex",
+      altText: title,
+      contents: {
+        type: "bubble",
+        hero: {
+          type: "image",
+          url: "https://drive.google.com/thumbnail?id=1NTax9HfzpOIuio7v--YPNooKZiGl5Ueu&sz=w1200",
+          size: "full",
+          aspectRatio: "20:9",
+          aspectMode: "cover"
+        },
+        body: {
+          type: "box",
+          layout: "vertical",
+          spacing: "sm",
+          contents: [
+            { type: "text", text: title, weight: "bold", size: "md" },
+            { type: "text", text: "พูดคุย/เตือนกันเอง • งานซ่อมหรือการเงินให้ทัก OA", size: "sm", color: "#666666", wrap: true }
+          ]
+        },
+        footer: {
+          type: "box",
+          layout: "vertical",
+          contents: [{
+            type: "button",
+            style: "primary",
+            action: { type: "uri", label: "เข้าร่วมกลุ่ม", uri: link }
+          }]
+        }
+      }
+    }]
+  };
+
+  UrlFetchApp.fetch("https://api.line.me/v2/bot/message/push", {
+    method: "post",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+}
+
+function sendLineFlexTwoInvites(linkA, linkB, toUserId) {
+  const token = PropertiesService.getScriptProperties().getProperty('LINE_TOKEN');
+  if (!token || !toUserId) return;
+
+  const payload = {
+    to: toUserId,
+    messages: [{
+      type: "flex",
+      altText: "เข้าร่วมกลุ่มผู้เช่า – เลือกอาคาร",
+      contents: {
+        type: "bubble",
+        body: {
+          type: "box",
+          layout: "vertical",
+          contents: [
+            { type: "text", text: "เข้าร่วมกลุ่มผู้เช่า", weight: "bold", size: "md" },
+            { type: "text", text: "เลือกอาคารของคุณเพื่อเข้าร่วม", size: "sm", color: "#666666" }
+          ]
+        },
+        footer: {
+          type: "box",
+          layout: "vertical",
+          spacing: "sm",
+          contents: [
+            { type: "button", style: "primary", action: { type: "uri", label: "อาคาร A", uri: linkA } },
+            { type: "button", style: "secondary", action: { type: "uri", label: "อาคาร B", uri: linkB } }
+          ]
+        }
+      }
+    }]
+  };
+
+  UrlFetchApp.fetch("https://api.line.me/v2/bot/message/push", {
+    method: "post",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+}
+
 function getLineIdForRoom(roomId) {
   const ss = SpreadsheetApp.openById(CONFIG.SHEET_ID);
   const rooms = ss.getSheetByName("Rooms");
@@ -598,5 +866,3 @@ function testCopyTemplate() {
   const copy = DriveApp.getFileById(docId).makeCopy("TEST_COPY", folder);
   Logger.log(copy.getUrl());
 }
-
-
