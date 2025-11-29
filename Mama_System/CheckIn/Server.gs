@@ -22,6 +22,7 @@ var CONFIG = {
 
 const WELCOME_URL  = "https://drive.google.com/file/d/1wWcvDnXa5oJnAFxfdYAhc1f35Nr8Kfhx/view?usp=drive_link";
 const OPENCHAT_LINKS = CONFIG.OPENCHAT_LINKS || {};
+const N8N_WEBHOOK_URL = 'https://n8n.srv1112305.hstgr.cloud/webhook-test/37fbebfb-2a9a-410c-b913-728550b8fbd9';
 
 /* ---------------- Web App ---------------- */
 function doGet() {
@@ -125,6 +126,27 @@ function getColIndex(sh, headerName) {
 }
 function getColByAreaSuffix(sh, area, suffix) {
   return getOrCreateCol(sh, area, suffix);
+}
+
+function notifyN8N(roomId, building, floor) {
+  const payload = {
+    source: 'room_inspect',
+    roomId,
+    building,
+    floor,
+    timestamp: new Date().toISOString()
+  };
+
+  try {
+    UrlFetchApp.fetch(N8N_WEBHOOK_URL, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+  } catch (err) {
+    Logger.log('⚠️ notifyN8N failed: ' + err);
+  }
 }
 
 function doPost(e) {
@@ -268,6 +290,9 @@ function doPost(e) {
       if (meta.status) sh.getRange(r, getColByAreaSuffix(sh, a, 'STATUS')).setValue(meta.status);
       if (meta.note)   sh.getRange(r, getColByAreaSuffix(sh, a, 'NOTES')).setValue(meta.note);
     });
+
+    // fire-and-forget webhook for downstream automations
+    notifyN8N(roomId, building, floor);
 
 
     // === find tenant's LINE ID & send PDFs + welcome pack ===
