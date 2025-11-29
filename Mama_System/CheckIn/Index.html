@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <!-- IMPORTANT: mobile fit + prevent weird zoom -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>แบบตรวจสภาพห้องพัก</title>
+  <style>
+    :root {
+      --primary-color: #0a84ff;
+      --text-color: #1c1c1e;
+      --muted-color: #6e6e73;
+      --background-color: #f5f5f7;
+      --background-accent: linear-gradient(160deg, #f9fbfc 0%, #f3f4f7 100%);
+      --card-background: rgba(255, 255, 255, 0.92);
+      --surface-background: rgba(255, 255, 255, 0.75);
+      --border-color: rgba(60, 60, 67, 0.16);
+      --border-strong: rgba(60, 60, 67, 0.28);
+      --shadow-soft: 0 25px 60px -45px rgba(28, 28, 30, 0.4);
+      --shadow-focus: 0 0 0 8px rgba(10, 132, 255, 0.08);
+      color-scheme: light;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--background-accent);
+      color: var(--text-color);
+      line-height: 1.6;
+      font-size: clamp(17px, 4.5vw, 19px);
+      -webkit-font-smoothing: antialiased;
+      letter-spacing: -0.012em;
+    }
+
+    .appbar {
+      position: sticky;
+      top: 0;
+      z-index: 12;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: clamp(1.1rem, 3vw, 1.6rem);
+      font-size: clamp(1.35rem, 4.2vw, 1.65rem);
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: saturate(180%) blur(24px);
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-color);
+    }
+
+    .container {
+      padding: clamp(1.2rem, 3.6vw, 1.8rem) clamp(1.2rem, 4vw, 2rem);
+      padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+      max-width: 540px;
+      margin: 0 auto;
+      display: grid;
+      gap: clamp(1rem, 3vw, 1.5rem);
+    }
+
+    form {
+      display: grid;
+      gap: clamp(1rem, 3.2vw, 1.4rem);
+    }
+
+    .card {
+      position: relative;
+      background: var(--card-background);
+      border-radius: 18px;
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-soft);
+      padding: clamp(1.2rem, 3.6vw, 1.8rem);
+      transition: box-shadow 0.25s ease, transform 0.25s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 28px 60px -48px rgba(10, 10, 12, 0.55);
+    }
+
+    .card-title {
+      margin: 0 0 clamp(0.6rem, 2vw, 0.9rem);
+      font-size: clamp(1.1rem, 3.5vw, 1.35rem);
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      color: var(--text-color);
+    }
+
+    .muted {
+      color: var(--muted-color);
+      font-size: clamp(0.95rem, 3vw, 1.05rem);
+    }
+
+    .grid {
+      display: grid;
+      gap: clamp(0.9rem, 3vw, 1.2rem);
+    }
+
+    .grid-2 {
+      grid-template-columns: 1fr;
+    }
+
+    .stack {
+      display: grid;
+      gap: clamp(0.9rem, 3vw, 1.2rem);
+    }
+
+    .field {
+      width: 100%;
+      padding: clamp(0.95rem, 3.6vw, 1.2rem) clamp(1.05rem, 4vw, 1.4rem);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      font-size: clamp(1.05rem, 3.8vw, 1.25rem);
+      background: rgba(255, 255, 255, 0.7);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    }
+
+    .field:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: var(--shadow-focus);
+      background-color: #ffffff;
+    }
+
+    textarea.field {
+      min-height: 110px;
+      resize: vertical;
+    }
+
+    input.field[type="file"] {
+      padding: 0.7rem 1rem;
+      font-size: clamp(1rem, 3.2vw, 1.1rem);
+      color: var(--muted-color);
+    }
+
+    input.field[type="file"]::-webkit-file-upload-button {
+      background: rgba(10, 132, 255, 0.08);
+      border: 1px solid transparent;
+      border-radius: 10px;
+      color: var(--primary-color);
+      padding: 0.55rem 0.95rem;
+      margin-right: 0.9rem;
+      font-weight: 600;
+      transition: background 0.2s ease;
+    }
+
+    input.field[type="file"]::-webkit-file-upload-button:hover {
+      background: rgba(10, 132, 255, 0.15);
+    }
+
+    .radio-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: clamp(0.6rem, 3vw, 0.85rem);
+    }
+
+    .radio {
+      position: relative;
+      flex: 1 1 calc(50% - 0.6rem);
+      min-width: 132px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(0.8rem, 3.4vw, 1rem) clamp(1rem, 3.8vw, 1.3rem);
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      background: rgba(255, 255, 255, 0.65);
+      font-size: clamp(1.05rem, 3.6vw, 1.2rem);
+      font-weight: 600;
+      color: var(--muted-color);
+      cursor: pointer;
+      transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .radio input[type="radio"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .radio:has(input:checked) {
+      border-color: var(--primary-color);
+      color: var(--text-color);
+      background: rgba(10, 132, 255, 0.12);
+      box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.08);
+    }
+
+    .btn {
+      width: 100%;
+      border: none;
+      border-radius: 16px;
+      padding: clamp(1.05rem, 3.8vw, 1.35rem);
+      font-size: clamp(1.15rem, 4vw, 1.35rem);
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: white;
+      background: linear-gradient(145deg, #0a84ff, #4bc3ff);
+      box-shadow: 0 12px 30px -15px rgba(10, 132, 255, 0.6);
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+    }
+
+    .btn:hover,
+    .btn:focus {
+      transform: translateY(-1px);
+      box-shadow: 0 18px 40px -20px rgba(10, 132, 255, 0.7);
+      outline: none;
+    }
+
+    .btn:active {
+      transform: translateY(0);
+      box-shadow: 0 12px 32px -18px rgba(10, 132, 255, 0.55);
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .btn-secondary {
+      border-radius: 14px;
+      border: 1px solid var(--border-color);
+      background: rgba(255, 255, 255, 0.65);
+      color: var(--text-color);
+      font-size: clamp(1rem, 3.6vw, 1.15rem);
+      padding: clamp(0.9rem, 3.4vw, 1.15rem);
+      font-weight: 600;
+      transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .btn-secondary:hover,
+    .btn-secondary:focus {
+      border-color: var(--primary-color);
+      background: rgba(10, 132, 255, 0.12);
+      box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.08);
+      outline: none;
+    }
+
+    .submit-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      padding: clamp(1rem, 3.8vw, 1.4rem) clamp(1.2rem, 5vw, 1.8rem) calc(1rem + env(safe-area-inset-bottom, 0px));
+      background: var(--surface-background);
+      border-top: 1px solid var(--border-color);
+      backdrop-filter: saturate(180%) blur(18px);
+      box-shadow: 0 -20px 32px -32px rgba(0, 0, 0, 0.35);
+    }
+
+    .submit-bar .btn {
+      max-width: 520px;
+    }
+
+    details > summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0;
+    }
+
+    details > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    details > summary::after {
+      content: "";
+      width: 0.7rem;
+      height: 0.7rem;
+      border-right: 2px solid var(--muted-color);
+      border-bottom: 2px solid var(--muted-color);
+      transform: rotate(-45deg);
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    details[open] > summary::after {
+      transform: rotate(45deg);
+    }
+
+    .card-summary {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.2rem;
+    }
+
+    .card-summary .card-title {
+      margin-bottom: 0.1rem;
+    }
+
+    details[open] .muted {
+      display: none;
+    }
+
+    .signature-pad {
+      width: 100%;
+      height: 200px;
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      background: #fff;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    }
+
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: rgba(15, 16, 20, 0.45);
+      backdrop-filter: blur(14px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.28s ease;
+      z-index: 200;
+    }
+
+    .loading-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .loading-card {
+      width: min(86vw, 420px);
+      padding: clamp(1.4rem, 4vw, 1.9rem);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(60, 60, 67, 0.18);
+      box-shadow: 0 25px 65px -35px rgba(0, 0, 0, 0.6);
+      display: grid;
+      gap: clamp(1rem, 3vw, 1.2rem);
+      text-align: center;
+      color: var(--text-color);
+    }
+
+    .loading-card h2 {
+      margin: 0;
+      font-size: clamp(1.2rem, 4vw, 1.4rem);
+      font-weight: 600;
+      letter-spacing: -0.0125em;
+    }
+
+    .loading-status {
+      margin: 0;
+      font-size: clamp(1rem, 3.2vw, 1.15rem);
+      color: var(--muted-color);
+    }
+
+    .spinner {
+      width: 54px;
+      height: 54px;
+      margin: 0 auto;
+      border-radius: 50%;
+      border: 4px solid rgba(10, 132, 255, 0.18);
+      border-top-color: var(--primary-color);
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (min-width: 600px) {
+      .container {
+        padding: clamp(1.6rem, 3vw, 2rem) 2rem calc(7rem + env(safe-area-inset-bottom, 0px));
+      }
+
+      .grid-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .card-summary {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .card-summary .card-title {
+        margin-bottom: 0;
+      }
+    }
+
+    @media (max-width: 480px) {
+      body {
+        font-size: 17px;
+      }
+
+      .container {
+        width: 100%;
+        padding: 1.1rem 1.1rem calc(6.4rem + env(safe-area-inset-bottom, 0px));
+        gap: 1.05rem;
+      }
+
+      form {
+        gap: 1.05rem;
+      }
+
+      .card {
+        border-radius: 16px;
+        padding: 1.2rem;
+        box-shadow: 0 12px 30px -24px rgba(28, 28, 30, 0.42);
+      }
+
+      .card-title {
+        font-size: 1.15rem;
+      }
+
+      .grid-2 {
+        gap: 0.85rem;
+      }
+
+      .field {
+        font-size: 1.05rem;
+        padding: 0.95rem 1.15rem;
+        border-radius: 12px;
+      }
+
+      textarea.field {
+        min-height: 100px;
+      }
+
+      .radio-row {
+        gap: 0.75rem;
+      }
+
+      .radio {
+        flex: 1 1 100%;
+        padding: 0.85rem 1rem;
+        font-size: 1.05rem;
+      }
+
+      .submit-bar {
+        padding: 1rem 1.2rem calc(1.2rem + env(safe-area-inset-bottom, 0px));
+      }
+    }
+
+    @media (max-width: 360px) {
+      .container {
+        padding-left: 0.9rem;
+        padding-right: 0.9rem;
+      }
+
+      .radio-row {
+        gap: 0.6rem;
+      }
+
+      .radio {
+        min-width: 0;
+      }
+
+      .btn {
+        font-size: 1.15rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="appbar">แบบฟอร์มตรวจห้องพัก</header>
+
+  <main class="container">
+    <form id="inspect" action="https://gas-proxy.mamamansion99.workers.dev/upload"
+          method="POST" enctype="multipart/form-data">
+
+      <!-- General Info -->
+      <section class="card">
+        <h2 class="card-title">ข้อมูลทั่วไป</h2>
+        <div class="grid grid-2">
+          <input class="field" type="text" name="building" placeholder="อาคาร" autocomplete="section-room building" required />
+          <input class="field" type="text" name="floor" placeholder="ชั้น" inputmode="numeric" autocomplete="section-room floor" required />
+          <input class="field" type="text" name="roomId" placeholder="หมายเลขห้อง" autocomplete="section-room room" autofocus required />
+          <!-- Inspector dropdown -->
+          <select class="field" name="inspector" required>
+            <option value="">เลือกผู้ตรวจ</option>
+            <!-- === START EDIT HERE: ชื่อใหม่ตามที่ขอครับ === -->
+            <option value="Ma">Ma</option>
+            <option value="KK">KK</option>
+            <option value="พี่ก้อย">พี่ก้อย</option>
+            <option value="พี่ยุ">พี่ยุ</option>
+            <!-- === END EDIT HERE === -->
+          </select>
+        </div>
+        <textarea class="field" name="globalNotes" placeholder="หมายเหตุเพิ่มเติม"></textarea>
+      </section>
+
+      <!-- Area = details card template (repeat) -->
+      <details class="card" open>
+        <summary>
+          <div class="card-summary">
+            <h2 class="card-title">ประตู</h2>
+            <span class="muted">แตะเพื่อย่อ</span>
+          </div>
+        </summary>
+        <div class="stack">
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="status[DOOR]" value="ok" checked> ปกติ</label>
+            <label class="radio"><input type="radio" name="status[DOOR]" value="problem"> มีปัญหา</label>
+          </div>
+          <textarea class="field" name="note[DOOR]" placeholder="หมายเหตุสำหรับประตู..."></textarea>
+          <input class="field" type="file" name="photo[DOOR][]" accept="image/*" capture="environment" multiple />
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>
+          <div class="card-summary">
+            <h2 class="card-title">ผ้าม่าน</h2>
+            <span class="muted">แตะเพื่อเปิด</span>
+          </div>
+        </summary>
+        <div class="stack">
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="status[CURTAIN]" value="ok" checked> ปกติ</label>
+            <label class="radio"><input type="radio" name="status[CURTAIN]" value="problem"> มีปัญหา</label>
+          </div>
+          <textarea class="field" name="note[CURTAIN]" placeholder="หมายเหตุสำหรับผ้าม่าน..."></textarea>
+          <input class="field" type="file" name="photo[CURTAIN][]" accept="image/*" capture="environment" multiple />
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>
+          <div class="card-summary">
+            <h2 class="card-title">เตียง</h2>
+            <span class="muted">แตะเพื่อเปิด</span>
+          </div>
+        </summary>
+        <div class="stack">
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="status[BED]" value="ok" checked> ปกติ</label>
+            <label class="radio"><input type="radio" name="status[BED]" value="problem"> มีปัญหา</label>
+          </div>
+          <textarea class="field" name="note[BED]" placeholder="หมายเหตุสำหรับเตียง..."></textarea>
+          <input class="field" type="file" name="photo[BED][]" accept="image/*" capture="environment" multiple />
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>
+          <div class="card-summary">
+            <h2 class="card-title">เก้าอี้และโต๊ะ</h2>
+            <span class="muted">แตะเพื่อเปิด</span>
+          </div>
+        </summary>
+        <div class="stack">
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="status[CHAIR_TABLE]" value="ok" checked> ปกติ</label>
+            <label class="radio"><input type="radio" name="status[CHAIR_TABLE]" value="problem"> มีปัญหา</label>
+          </div>
+          <textarea class="field" name="note[CHAIR_TABLE]" placeholder="หมายเหตุสำหรับเก้าอี้และโต๊ะ..."></textarea>
+          <input class="field" type="file" name="photo[CHAIR_TABLE][]" accept="image/*" capture="environment" multiple />
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>
+          <div class="card-summary">
+            <h2 class="card-title">ตู้เสื้อผ้า</h2>
+            <span class="muted">แตะเพื่อเปิด</span>
+          </div>
+        </summary>
+        <div class="stack">
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="status[WARDROBE]" value="ok" checked> ปกติ</label>
+            <label class="radio"><input type="radio" name="status[WARDROBE]" value="problem"> มีปัญหา</label>
+          </div>
+          <textarea class="field" name="note[WARDROBE]" placeholder="หมายเหตุสำหรับตู้เสื้อผ้า..."></textarea>
+          <input class="field" type="file" name="photo[WARDROBE][]" accept="image/*" capture="environment" multiple />
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>
+          <div class="card-summary">
+            <h2 class="card-title">เครื่องปรับอากาศ</h2>
+            <span class="muted">แตะเพื่อเปิด</span>
+          </div>
+        </summary>
+        <div class="stack">
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="status[AC]" value="ok" checked> ปกติ</label>
+            <label class="radio"><input type="radio" name="status[AC]" value="problem"> มีปัญหา</label>
+          </div>
+          <textarea class="field" name="note[AC]" placeholder="หมายเหตุสำหรับเครื่องปรับอากาศ..."></textarea>
+          <input class="field" type="file" name="photo[AC][]" accept="image/*" capture="environment" multiple />
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>
+          <div class="card-summary">
+            <h2 class="card-title">โถส้วมและอ่างล้างหน้า</h2>
+            <span class="muted">แตะเพื่อเปิด</span>
+          </div>
+        </summary>
+        <div class="stack">
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="status[TOILET_SINK]" value="ok" checked> ปกติ</label>
+            <label class="radio"><input type="radio" name="status[TOILET_SINK]" value="problem"> มีปัญหา</label>
+          </div>
+          <textarea class="field" name="note[TOILET_SINK]" placeholder="หมายเหตุสำหรับโถส้วมและอ่างล้างหน้า..."></textarea>
+          <input class="field" type="file" name="photo[TOILET_SINK][]" accept="image/*" capture="environment" multiple />
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>
+          <div class="card-summary">
+            <h2 class="card-title">ฝักบัวและเครื่องทำน้ำอุ่น</h2>
+            <span class="muted">แตะเพื่อเปิด</span>
+          </div>
+        </summary>
+        <div class="stack">
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="status[SHOWER_HEATER]" value="ok" checked> ปกติ</label>
+            <label class="radio"><input type="radio" name="status[SHOWER_HEATER]" value="problem"> มีปัญหา</label>
+          </div>
+          <textarea class="field" name="note[SHOWER_HEATER]" placeholder="หมายเหตุสำหรับฝักบัวและเครื่องทำน้ำอุ่น..."></textarea>
+          <input class="field" type="file" name="photo[SHOWER_HEATER][]" accept="image/*" capture="environment" multiple />
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>
+          <div class="card-summary">
+            <h2 class="card-title">ผนัง / พื้น / เพดาน</h2>
+            <span class="muted">แตะเพื่อเปิด</span>
+          </div>
+        </summary>
+        <div class="stack">
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="status[WALL_FLOOR_CEILING]" value="ok" checked> ปกติ</label>
+            <label class="radio"><input type="radio" name="status[WALL_FLOOR_CEILING]" value="problem"> มีปัญหา</label>
+          </div>
+          <textarea class="field" name="note[WALL_FLOOR_CEILING]" placeholder="หมายเหตุสำหรับผนัง / พื้น / เพดาน..."></textarea>
+          <input class="field" type="file" name="photo[WALL_FLOOR_CEILING][]" accept="image/*" capture="environment" multiple />
+        </div>
+      </details>
+
+      <!-- Tenant Signature -->
+      <section class="card">
+        <h2 class="card-title">ลายเซ็นผู้เช่า</h2>
+        <canvas id="signature-pad" class="signature-pad" width="400" height="200"></canvas>
+        <div class="stack">
+          <button type="button" class="btn-secondary" onclick="clearSig()">ลบลายเซ็น</button>
+        </div>
+        <input type="file" id="signatureFile" name="photo[SIGNATURE][]" accept="image/png" hidden />
+      </section>
+
+      <!-- Sticky submit for thumb reach -->
+      <div class="submit-bar">
+        <button class="btn" type="submit">ส่งผลตรวจ</button>
+      </div>
+    </form>
+  </main>
+
+  <div id="loading-overlay" class="loading-overlay" aria-hidden="true">
+    <div class="loading-card" role="status" aria-live="assertive">
+      <div class="spinner" aria-hidden="true"></div>
+      <h2>กำลังส่งแบบฟอร์ม…</h2>
+      <p class="loading-status">กำลังเตรียมข้อมูลขึ้นระบบ</p>
+    </div>
+  </div>
+
+<script>
+  // prevent double-submit on slow networks
+  const form = document.getElementById('inspect');
+  const overlay = document.getElementById('loading-overlay');
+  const loadingStatus = overlay ? overlay.querySelector('.loading-status') : null;
+  let loadingInterval = null;
+
+  function startLoadingFeedback() {
+    if (!overlay) return;
+    overlay.classList.add('show');
+    overlay.setAttribute('aria-hidden', 'false');
+    const steps = [
+      'กำลังเตรียมไฟล์และข้อมูล…',
+      'กำลังอัปโหลดรูปภาพและลายเซ็น…',
+      'กำลังส่งข้อมูลไปยังระบบ Mama Mansion…'
+    ];
+    if (loadingStatus) {
+      let step = 0;
+      loadingStatus.textContent = steps[step];
+      loadingInterval = setInterval(() => {
+        step = (step + 1) % steps.length;
+        loadingStatus.textContent = steps[step];
+      }, 2200);
+    }
+  }
+
+  function stopLoadingFeedback() {
+    if (loadingInterval) {
+      clearInterval(loadingInterval);
+      loadingInterval = null;
+    }
+    if (overlay) {
+      overlay.classList.remove('show');
+      overlay.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  window.addEventListener('pageshow', stopLoadingFeedback);
+
+  // ========== Tenant Signature Pad ==========
+  const canvas = document.getElementById('signature-pad');
+  const ctx = canvas.getContext('2d');
+  let drawing = false;
+
+  // Adjust canvas for high DPI screens
+  const dpi = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpi;
+  canvas.height = rect.height * dpi;
+  ctx.scale(dpi, dpi);
+  
+  // Set initial background and styles
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#000';
+
+  canvas.addEventListener('mousedown', startDraw);
+  canvas.addEventListener('mouseup', endDraw);
+  canvas.addEventListener('mouseout', endDraw);
+  canvas.addEventListener('mousemove', draw);
+
+  canvas.addEventListener('touchstart', startDraw);
+  canvas.addEventListener('touchend', endDraw);
+  canvas.addEventListener('touchcancel', endDraw);
+  canvas.addEventListener('touchmove', drawTouch);
+
+  function startDraw(e) {
+    drawing = true;
+    const pos = getPos(e.touches ? e.touches[0] : e);
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+  }
+  function endDraw() {
+    drawing = false;
+    ctx.beginPath();
+  }
+  function draw(e) {
+    if (!drawing) return;
+    const pos = getPos(e);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+  }
+  function drawTouch(e) {
+    e.preventDefault();
+    if (!drawing) return;
+    const pos = getPos(e.touches[0]);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+  }
+  function getPos(evt) {
+    const rect = canvas.getBoundingClientRect();
+    return { 
+      x: evt.clientX - rect.left, 
+      y: evt.clientY - rect.top 
+    };
+  }
+  function clearSig() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // --- helper: canvas → Blob (with safe fallback) ---
+  function canvasToBlobPNG(cv) {
+    return new Promise(resolve => {
+      if (cv.toBlob) {
+        cv.toBlob(b => resolve(b), 'image/png');
+      } else {
+        const dataURL = cv.toDataURL('image/png');
+        const byteString = atob(dataURL.split(',')[1]);
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+        resolve(new Blob([ab], { type: 'image/png' }));
+      }
+    });
+  }
+
+  // --- helper: ensure a hidden field exists and set its value ---
+  function setHidden(name, value) {
+    let el = form.querySelector(`input[type="hidden"][name="${name}"]`);
+    if (!el) {
+      el = document.createElement('input');
+      el.type = 'hidden';
+      el.name = name;
+      form.appendChild(el);
+    }
+    el.value = value;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const btn = form.querySelector('.btn');
+    btn.disabled = true;
+    btn.textContent = 'กำลังส่ง…';
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'ส่งผลตรวจ'; }, 8000);
+    startLoadingFeedback();
+
+    // 1) Put canvas into the hidden file input => Worker will treat like normal photo
+    const blob = await canvasToBlobPNG(canvas);
+    if (blob && blob.size > 100) { // Check for more than just an empty canvas
+      const file = new File([blob], `signature_${Date.now()}.png`, { type: 'image/png' });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      const sigInput = document.getElementById('signatureFile'); // name="photo[SIGNATURE][]"
+      sigInput.files = dt.files;
+    }
+
+    // 2) Keep base64 too (harmless; future-proof if Worker starts forwarding it)
+    setHidden('tenantSignature', canvas.toDataURL('image/png'));
+
+    // 3) Submit normally (multipart/form-data stays intact)
+    form.submit();
+  });
+</script>
+</body>
+</html>
