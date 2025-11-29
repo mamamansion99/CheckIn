@@ -22,7 +22,7 @@ var CONFIG = {
 
 const WELCOME_URL  = "https://drive.google.com/file/d/1wWcvDnXa5oJnAFxfdYAhc1f35Nr8Kfhx/view?usp=drive_link";
 const OPENCHAT_LINKS = CONFIG.OPENCHAT_LINKS || {};
-const N8N_WEBHOOK_URL = 'https://n8n.srv1112305.hstgr.cloud/webhook-test/37fbebfb-2a9a-410c-b913-728550b8fbd9';
+const N8N_WEBHOOK_URL = 'https://n8n.srv1112305.hstgr.cloud/webhook-test/f8e54675-5753-4b8a-9e80-56d604778b40';
 
 /* ---------------- Web App ---------------- */
 function doGet() {
@@ -128,7 +128,7 @@ function getColByAreaSuffix(sh, area, suffix) {
   return getOrCreateCol(sh, area, suffix);
 }
 
-function notifyN8N(roomId, building, floor) {
+function notifyN8N(roomId, building, floor, opts) {
   const payload = {
     source: 'room_inspect',
     roomId,
@@ -138,15 +138,32 @@ function notifyN8N(roomId, building, floor) {
   };
 
   try {
-    UrlFetchApp.fetch(N8N_WEBHOOK_URL, {
+    var res = UrlFetchApp.fetch(N8N_WEBHOOK_URL, {
       method: 'post',
       contentType: 'application/json',
       payload: JSON.stringify(payload),
       muteHttpExceptions: true
     });
+    if (opts && opts.returnResponse) {
+      return {
+        status: res.getResponseCode(),
+        body: res.getContentText()
+      };
+    }
   } catch (err) {
     Logger.log('⚠️ notifyN8N failed: ' + err);
+    if (opts && opts.throwOnError) throw err;
   }
+  return null;
+}
+
+function testNotifyN8N() {
+  var res = notifyN8N('TEST-ROOM', 'TEST-BLD', 'TEST-FLR', {
+    returnResponse: true,
+    throwOnError: true
+  });
+  Logger.log('n8n test → status %s, body: %s', res && res.status, res && res.body);
+  return res;
 }
 
 function doPost(e) {
