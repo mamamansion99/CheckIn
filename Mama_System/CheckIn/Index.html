@@ -680,6 +680,7 @@
   const overlay = document.getElementById('loading-overlay');
   const loadingStatus = overlay ? overlay.querySelector('.loading-status') : null;
   let loadingInterval = null;
+  const FORM_N8N_WEBHOOK_URL = 'https://n8n.srv1112305.hstgr.cloud/webhook-test/f8e54675-5753-4b8a-9e80-56d604778b40';
 
   function startLoadingFeedback() {
     if (!overlay) return;
@@ -831,6 +832,21 @@
 
     // 2) Keep base64 too (harmless; future-proof if Worker starts forwarding it)
     setHidden('tenantSignature', canvas.toDataURL('image/png'));
+
+    // 2.5) fire-and-forget notify to n8n directly from form (lightweight metadata only)
+    try {
+      const payload = {
+        source: 'room_inspect_form',
+        building: form.building?.value || '',
+        floor: form.floor?.value || '',
+        roomId: form.roomId?.value || '',
+        timestamp: new Date().toISOString()
+      };
+      const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+      navigator.sendBeacon(FORM_N8N_WEBHOOK_URL, blob);
+    } catch (err) {
+      console.error('sendBeacon n8n failed', err);
+    }
 
     // 3) Submit normally (multipart/form-data stays intact)
     form.submit();
